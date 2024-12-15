@@ -21,7 +21,7 @@ type AddressBlockGenerator struct {
 }
 
 func (a *AddressBlockGenerator) NewAddressBlock() AddressBlock {
-	key, err := ecdsa.GenerateKey(btcec.S256(), a.prng)
+	key, err := ecdsa.GenerateKey(btcec.S256(), crypto_rand.Reader)
 	if err != nil {
 		panic(err)
 	}

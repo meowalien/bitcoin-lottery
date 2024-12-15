@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"runtime"
 	"sync"
+	"time"
 )
 import _ "net/http/pprof"
 
@@ -56,11 +57,14 @@ func main() {
 	}
 
 	go func() {
+		now := time.Now()
 		for iteration := 1; ; iteration++ {
 			if iteration%1_000_000 == 0 {
 				fmt.Println(iteration)
 				//fmt.Println("Number of goroutines: ", runtime.NumGoroutine())
 				fmt.Println("job queue: ", len(jobs), "/", jobQueueSize)
+				fmt.Println("time cost: ", time.Since(now))
+				now = time.Now()
 			}
 			jobs <- iteration
 		}
