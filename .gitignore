@@ -1,1 +1,7 @@
 .idea/
+/address.txt
+/address_after_clean.txt
+/address_after_clean_bk.txt
+/address_after_clean_only_address.txt
+/address_after_clean_only_address_sorted.txt
+/bloom_filter.bf
