@@ -5,25 +5,27 @@ import (
 	"bitcoin-lottery/validater"
 	"context"
 	"fmt"
+	"log"
+	"net/http"
 	"runtime"
 	"sync"
 )
+import _ "net/http/pprof"
 
-var numWorkers = runtime.NumCPU()
+var numWorkers = runtime.NumCPU() * 4
 var jobQueueSize = numWorkers * 10
 
-func worker(ctx context.Context, cancel context.CancelFunc, id int, jobs <-chan int, results chan<- bitcoin_address.AddressBlock, wg *sync.WaitGroup) {
+func worker(ctx context.Context, cancel context.CancelFunc, id int, jobs <-chan int, results chan<- bitcoin_address.AddressBlock, wg *sync.WaitGroup, vl *validater.Validater) {
 	defer wg.Done()
-	vl := validater.NewValidater("bloom_filter.bf", "address_after_clean_only_address_sorted.txt")
-	defer vl.Close()
-
+	addressBlockGenerator := bitcoin_address.NewAddressBlockGenerator()
 	for iteration := range jobs {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
-		newAddressBlock := bitcoin_address.NewAddressBlock()
+
+		newAddressBlock := addressBlockGenerator.NewAddressBlock()
 		match := vl.ValidateAddressBlock(newAddressBlock)
 		if match {
 			cancel()
@@ -35,6 +37,9 @@ func worker(ctx context.Context, cancel context.CancelFunc, id int, jobs <-chan 
 }
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 	//runtime.GOMAXPROCS(runtime.NumCPU())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -42,9 +47,12 @@ func main() {
 	results := make(chan bitcoin_address.AddressBlock)
 	var wg sync.WaitGroup
 
+	vl := validater.NewValidater("bloom_filter.bf", "address_after_clean_only_address_sorted.txt")
+	//defer vl.Close()
+
 	for w := 1; w <= numWorkers; w++ {
 		wg.Add(1)
-		go worker(ctx, cancel, w, jobs, results, &wg)
+		go worker(ctx, cancel, w, jobs, results, &wg, vl)
 	}
 
 	go func() {
@@ -61,11 +69,12 @@ func main() {
 	go func() {
 		wg.Wait()
 		close(results)
+		vl.Close()
 	}()
 
 	for result := range results {
 		fmt.Println("Match Address Block: ", result.String())
-		//cancel()
+		cancel()
 		break
 	}
 }
